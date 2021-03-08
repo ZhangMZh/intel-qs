@@ -276,6 +276,7 @@ endif()
 add_subdirectory(tutorials)
 add_subdirectory(benchmarks)
 add_subdirectory(interface)
+add_subdirectory(tests)
 
 
 # INFO: when below flag is defined, checks of the form "assert(condition)" are skipped.

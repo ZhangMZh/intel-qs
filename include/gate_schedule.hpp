@@ -1,12 +1,10 @@
 /// @file dag.hpp
 /// @brief Declare the @c DAGCircuit class.
 
-#include "qureg.hpp"
+#include "dag.hpp"
 
 #ifndef DAG_HPP
 #define DAG_HPP
-
-void hello();
 class DAGCircuit
 {
     // Constructors and destructors.

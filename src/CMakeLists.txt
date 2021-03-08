@@ -24,6 +24,8 @@ set(IQS_FILES
   utils.cpp
   rng_utils.cpp
   gate_spec.cpp
+  dag.cpp
+  gate_schedule.cpp
   CACHE INTERNAL "" FORCE)
 
 add_library(iqs SHARED ${IQS_FILES})
