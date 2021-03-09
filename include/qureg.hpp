@@ -37,6 +37,7 @@
 #include "conversion.hpp"
 #include "tinymatrix.hpp"
 #include "gate_spec.hpp"
+#include "dag.hpp"
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -288,6 +289,8 @@ class QubitRegister
   void ApplyCHadamard(unsigned const control_qubit, unsigned const target_qubit);
 
   void ApplyCPhaseRotation(unsigned const qubit, unsigned const qubit2, BaseType theta);
+  
+  void ApplyGate(DAGVertex v);
   
   // fusion  
   void TurnOnFusion(unsigned log2llc = 20);
