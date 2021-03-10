@@ -30,15 +30,16 @@ void hello();
 class DAGCircuit
 {
 private:
-    int v_num = 0;
+    int v_num;
+    int num_qubits;
+    std::map<int, std::set<int>> v2inedges;
+    std::map<int, std::set<int>> v2outedges;
 
 public:
     std::vector<DAGVertex> vertices;
-    std::map<int, std::set<int>> v2inedges;
-    std::map<int, std::set<int>> v2outedges;
-    // Constructors and destructors.
-    DAGCircuit() = default;
-    ~DAGCircuit() = default;
+
+    // Constructors
+    DAGCircuit(int _num_qubits);
 
     template <typename... T>
     void AddVertex(GateType type, T... args)
@@ -48,9 +49,10 @@ public:
     };
     void AddVertex(GateType type, std::vector<unsigned> qubits);
 
-    // remove a vertex and all its outcoming edges
+    // remove a vertex and all its outcoming edges from the graph
     void RemoveVertex(DAGVertex &v);
 
+    int getQubitNum();
     // num of vertices in current graph
     int getVertexNum();
     // calculate how many incoming edges does vertex v have currently

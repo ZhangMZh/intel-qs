@@ -6,7 +6,7 @@
 /// @brief Implement scheduling algorithm to reduce communication overhead.
 
 template <class Type>
-void QubitRegister<Type>::ApplyGate(DAGVertex v)
+void QubitRegister<Type>::ApplyGate(DAGVertex &v)
 {
     switch (v.type)
     {
@@ -29,71 +29,125 @@ void QubitRegister<Type>::ApplyGate(DAGVertex v)
     }
 }
 
+void identity_permutation(vector<unsigned> &sigma)
+{
+    for (unsigned i = 0; i < sigma.size(); i++)
+    {
+        sigma[i] = i;
+    }
+}
+
+bool is_local_qubit(vector<unsigned> &sigma, unsigned qubit, unsigned m)
+{
+    return sigma[qubit] < m;
+}
+
+// how many local qubits does the gate acts on
+int get_local_qubits_num(vector<unsigned> &sigma, std::vector<unsigned> &qubits, unsigned m)
+{
+    int count = 0;
+    for (auto qubit : qubits)
+    {
+        count += (sigma[qubit] < m);
+    }
+    return count;
+}
+
+void swap(unsigned &a, unsigned &b)
+{
+    unsigned temp = a;
+    a = b;
+    b = temp;
+}
+
 void scheduler(DAGCircuit &G)
 {
+    // num of local qubits.
+    unsigned m = G.getQubitNum() - qhipster::ilog2(qhipster::mpi::Environment::GetStateSize());
+
+    vector<unsigned> sigma(G.getQubitNum());
+    identity_permutation(sigma);
+
     while (G.getVertexNum() > 0)
     {
         for (auto &v : G.vertices)
         {
-            if (!v.is_removed && G.getInedgeNum(v) == 0)
+            if (!v.is_removed && G.getInedgeNum(v) == 0 /* v has no incoming edges */ &&
+                get_local_qubits_num(sigma, v.qubits, m) == v.qubits.size() /* v acts on local qubits */)
             {
+                // TODO: apply gate
+                G.RemoveVertex(v);
             }
         }
-        //     for (int v = 0; (v < G.max_V) && (G.ingraph(v)); v++)
-        //     {
-        //         if ((G.inedges(v) == 0) && (sigma[v] > 10))
-        //         {
-        //             //AddGate(v)
-        //             G.remove(v);
-        //         }
-        //     }
 
-        //     int _a = 0;
-        //     int da = 0;
-        //     vector<int> _sigma(G.max_V, 0);
-        //     vector<int> dsigma(G.max_V, 0);
-        //     for (int i = 0; i < G.max_V; i++)
-        //     {
-        //         _sigma[i] = i;
-        //         dsigma[i] = i;
-        //     }
+        int _a = 0;
+        int da = 0;
+        vector<unsigned> _sigma(G.getQubitNum());
+        vector<unsigned> dsigma(G.getQubitNum());
+        identity_permutation(_sigma);
+        identity_permutation(dsigma);
 
-        //     for (int l = 0; (l < G.max_V) && (sigma[l] < m); l++)
-        //     {
-        //         for (int g = 0; (g < G.max_V) && (sigma[g] >= m); g++)
-        //         {
-        //             // ?
-        //             da = 0;
-        //             for (int j = 0; (j < G.max_V) && (G.ingraph(j)); j++)
-        //             {
-        //                 if (dsigma[j] < m)
-        //                     da++;
-        //             }
-        //             if (da > _a)
-        //             {
-        //                 for (int j = 0; j < G.max_V; j++)
-        //                 {
-        //                     _sigma[j] = dsigma[j];
-        //                 }
-        //                 _a = da;
-        //             }
-        //         }
-        //     }
-        //     if (_a > 0)
-        //     {
-        //         for (int j = 0; j < G.max_V; j++)
-        //         {
-        //             sigma[j] = _sigma[j];
-        //         }
-        //         // add permutation
-        //     }
-        //     else
-        //     {
-        //         for (int v = 0; (v < G.max_V) && (G.ingraph(v)) && (G.inedges(v) == 0); v++)
-        //         {
-        //             // add v
-        //             G.remove(v);
-        //         }
-        //     }
+        // try all m(n-m) possible permutations
+        for (int l = 0; l < G.getQubitNum(); l++)
+        {
+            if (is_local_qubit(sigma, l, m))
+            {
+                for (int g = 0; g < G.getQubitNum(); g++)
+                {
+                    if (!is_local_qubit(sigma, g, m))
+                    {
+                        // σ' = σ◦(lg)
+                        for (int i = 0; i < G.getQubitNum(); i++)
+                        {
+                            if (sigma[i] == l)
+                            {
+                                dsigma[i] = g;
+                            }
+                            else if (sigma[i] = g)
+                            {
+                                dsigma[i] = l;
+                            }
+                            else
+                            {
+                                dsigma[i] = sigma[i];
+                            }
+                        }
+
+                        da = 0;
+                        for (auto &v : G.vertices)
+                        {
+                            if (!v.is_removed && get_local_qubits_num(dsigma, v.qubits, m) == v.qubits.size())
+                            {
+                                da++;
+                            }
+                        }
+
+                        if (da > _a)
+                        {
+                            _sigma = dsigma;
+                            _a = da;
+                        }
+                    }
+                }
+            }
+        }
+        if (_a > 0)
+        {
+            sigma = _sigma;
+            // TODO: permutate qubits
+        }
+        else
+        {
+            // it seems we can not remove communication from any gate by permutating qubits,
+            // so we just apply gate directly.
+            for (auto &v : G.vertices)
+            {
+                if (!v.is_removed && G.getInedgeNum(v) == 0 /* v has no incoming edges */)
+                {
+                    // TODO: apply gate
+                    G.RemoveVertex(v);
+                }
+            }
+        }
     }
 }

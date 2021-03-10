@@ -13,6 +13,12 @@ void hello()
          << endl;
 }
 
+DAGCircuit::DAGCircuit(int _num_qubits)
+{
+    v_num = 0;
+    num_qubits = _num_qubits;
+}
+
 void DAGCircuit::AddVertex(GateType type, std::vector<unsigned> qubits)
 {
     DAGVertex v = {(int)vertices.size(), type, qubits, false};
@@ -40,6 +46,7 @@ void DAGCircuit::AddVertex(GateType type, std::vector<unsigned> qubits)
 
 void DAGCircuit::RemoveVertex(DAGVertex &v)
 {
+    assert(!v.is_removed);
     // Remove vertex
     v.is_removed = true;
 
@@ -59,6 +66,11 @@ int DAGCircuit::getInedgeNum(DAGVertex &v)
     assert(!v.is_removed);
     auto &inedges = v2inedges.at(v.id);
     return inedges.size();
+}
+
+int DAGCircuit::getQubitNum()
+{
+    return num_qubits;
 }
 
 int DAGCircuit::getVertexNum()
