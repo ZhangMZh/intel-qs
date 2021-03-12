@@ -15,6 +15,9 @@ enum class GateType
     PauliX,
     PauliY,
     PauliZ,
+    CPauliX,
+    CPauliY,
+    CPauliZ,
 };
 
 typedef struct DAGVertex

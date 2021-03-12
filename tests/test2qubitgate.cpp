@@ -35,13 +35,12 @@ int main(int argc, char **argv)
     psi_trivial_order.EnableStatistics();
     start = MPI_Wtime();
 
-    for (int q = num_qubits - 10; q < num_qubits; ++q)
-    {
-        psi_trivial_order.ApplyHadamard(q);
-        psi_trivial_order.ApplyPauliX(q);
-        psi_trivial_order.ApplyPauliY(q);
-        psi_trivial_order.ApplyPauliZ(q);
-    }
+    // for (int q = num_qubits - 10; q < num_qubits; ++q)
+    // {
+    //     psi_trivial_order.ApplyCPauliX(num_qubits - q - 1, q);
+    //     psi_trivial_order.ApplyCPauliY(num_qubits - q - 1, q);
+    //     psi_trivial_order.ApplyCPauliZ(num_qubits - q - 1, q);
+    // }
     end = MPI_Wtime();
     psi_trivial_order.GetStatistics();
     psi_trivial_order.DisableStatistics();
@@ -55,10 +54,9 @@ int main(int argc, char **argv)
     DAGCircuit G(num_qubits);
     for (unsigned q = num_qubits - 10; q < num_qubits; ++q)
     {
-        G.AddVertex(GateType::Hadamard, q);
-        G.AddVertex(GateType::PauliX, q);
-        G.AddVertex(GateType::PauliY, q);
-        G.AddVertex(GateType::PauliZ, q);
+        G.AddVertex(GateType::CPauliX, num_qubits - q - 1, q);
+        G.AddVertex(GateType::CPauliY, num_qubits - q - 1, q);
+        G.AddVertex(GateType::CPauliZ, num_qubits - q - 1, q);
     }
 
     scheduler(G, psi_optmized_order);

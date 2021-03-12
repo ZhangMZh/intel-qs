@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <sys/time.h>
+#include <mpi.h>
 
 /// @file gate_schedule.cpp
 /// @brief Implement scheduling algorithm to reduce communication overhead.
@@ -31,6 +32,18 @@ void QubitRegister<Type>::ApplyGate(DAGVertex &v)
         assert(v.qubits.size() == 1);
         // std::cout << "Apply PauliZ gate...\nvertex: " << v.id << ", quibit: " << v.qubits[0] << "\n";
         ApplyPauliZ(v.qubits[0]);
+        break;
+    case GateType::CPauliX:
+        assert(v.qubits.size() == 2);
+        ApplyCPauliX(v.qubits[0], v.qubits[1]);
+        break;
+    case GateType::CPauliY:
+        assert(v.qubits.size() == 2);
+        ApplyCPauliY(v.qubits[0], v.qubits[1]);
+        break;
+    case GateType::CPauliZ:
+        assert(v.qubits.size() == 2);
+        ApplyCPauliZ(v.qubits[0], v.qubits[1]);
         break;
     default: // GateType not exist
         assert(false);
@@ -87,7 +100,9 @@ void print_permutation(std::vector<std::size_t> &sigma)
 void scheduler(DAGCircuit &G, QubitRegister<> &psi)
 {
     struct timeval time1, time2;
+    double start, end;
     double duration_optmized_order = 0;
+    std::vector<DAGVertex> inst;
     // num of local qubits.
     std::size_t m = G.getQubitNum() - qhipster::ilog2(qhipster::mpi::Environment::GetStateSize());
     int myrank = qhipster::mpi::Environment::GetStateRank();
@@ -103,14 +118,14 @@ void scheduler(DAGCircuit &G, QubitRegister<> &psi)
             if (!v.is_removed && G.getInedgeNum(v) == 0 /* v has no incoming edges */ &&
                 get_local_qubits_num(sigma, v.qubits, m) == v.qubits.size() /* v acts on local qubits */)
             {
-                qhipster::mpi::StateBarrier();
-                gettimeofday(&time1, (struct timezone *)0);
+                // qhipster::mpi::StateBarrier();
+                // start = MPI_Wtime();
 
-                psi.ApplyGate(v);
+                // psi.ApplyGate(v);
+                inst.push_back(v);
 
-                qhipster::mpi::StateBarrier();
-                gettimeofday(&time2, (struct timezone *)0);
-                duration_optmized_order += time2.tv_sec + time2.tv_usec * 1.0e-6 - time1.tv_sec - time1.tv_usec * 1.0e-6;
+                // qhipster::mpi::StateBarrier();
+                // duration_optmized_order += MPI_Wtime() - start;
 
                 G.RemoveVertex(v);
             }
@@ -170,12 +185,15 @@ void scheduler(DAGCircuit &G, QubitRegister<> &psi)
         if (_a > 0)
         {
             sigma = _sigma;
-            // if (myrank == 0)
-            //     print_permutation(sigma);
+            if (myrank == 0)
+            {
+                print_permutation(sigma);
+            }
+
             // qhipster::mpi::StateBarrier();
             // gettimeofday(&time1, (struct timezone *)0);
 
-            psi.PermuteQubits(sigma, "direct");
+            psi.PermuteByLocalGlobalExchangeOfQubitPairs(sigma, "direct");
 
             // qhipster::mpi::StateBarrier();
             // gettimeofday(&time2, (struct timezone *)0);
@@ -189,40 +207,47 @@ void scheduler(DAGCircuit &G, QubitRegister<> &psi)
             {
                 if (!v.is_removed && G.getInedgeNum(v) == 0 /* v has no incoming edges */)
                 {
-                    qhipster::mpi::StateBarrier();
-                    gettimeofday(&time1, (struct timezone *)0);
+                    // qhipster::mpi::StateBarrier();
+                    // start = MPI_Wtime();
 
-                    psi.ApplyGate(v);
+                    // psi.ApplyGate(v);
+                    inst.push_back(v);
 
-                    qhipster::mpi::StateBarrier();
-                    gettimeofday(&time2, (struct timezone *)0);
-                    duration_optmized_order += time2.tv_sec + time2.tv_usec * 1.0e-6 - time1.tv_sec - time1.tv_usec * 1.0e-6;
+                    // if (myrank == 0)
+                    // {
+                    //     print_permutation(sigma);
+                    //     std::cout << v.qubits[0] << " " << v.qubits[1] << "\n";
+                    // }
+
+                    // qhipster::mpi::StateBarrier();
+                    // duration_optmized_order += MPI_Wtime() - start;
                     G.RemoveVertex(v);
                 }
             }
         }
     }
     // identity_permutation(sigma);
-    // for (std::size_t q = 3; q < G.getQubitNum() - 3; q++)
+
+    // if (myrank == 0)
+    //     print_permutation(sigma);
+    // for (std::size_t q = 0; q < G.getQubitNum(); q++)
     // {
     //     // create inverse map.
     //     sigma[G.getQubitNum() - q - 1] = q;
     // }
-    // psi.PermuteQubits(sigma, "direct");
-    // qhipster::mpi::StateBarrier();
-    // gettimeofday(&time1, (struct timezone *)0);
-    // for (int q = G.getQubitNum() - 3; q < G.getQubitNum(); ++q)
-    // {
-    //     psi.ApplyHadamard(q);
-    //     psi.ApplyPauliX(q);
-    //     psi.ApplyPauliY(q);
-    //     psi.ApplyPauliZ(q);
-    // }
-    // qhipster::mpi::StateBarrier();
-    // gettimeofday(&time2, (struct timezone *)0);
-    // duration_optmized_order += time2.tv_sec + time2.tv_usec * 1.0e-6 - time1.tv_sec - time1.tv_usec * 1.0e-6;
-    if (myrank == 0)
-        print_permutation(sigma);
+    qhipster::mpi::StateBarrier();
+    psi.EnableStatistics();
+    start = MPI_Wtime();
+
+    for (auto &v : inst)
+    {
+        psi.ApplyGate(v);
+    }
+    qhipster::mpi::StateBarrier();
+    duration_optmized_order = MPI_Wtime() - start;
+    psi.GetStatistics();
+    psi.DisableStatistics();
+
     if (myrank == 0)
         std::cout << "optmized qubit order --> Simulation time = " << duration_optmized_order << "\n";
 }
